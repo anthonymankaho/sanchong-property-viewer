@@ -1,0 +1,24 @@
+# Backup exports from the app (contain personal property records + photos)
+sanchong_*.json
+*.json.bak
+backups/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs / temp
+*.log
+tmp/
+temp/
+node_modules/

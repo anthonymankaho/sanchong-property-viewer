@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="中山三鄉睇樓評分表 — 純離線單檔案網頁應用，資料存於瀏覽器 localStorage">
+<title>中山三鄉睇樓評分表</title>
+<style>
+    :root {
+        --primary: #1976d2;
+        --success: #2e7d32;
+        --danger: #c62828;
+        --warning: #ff9800;
+        --bg: #f5f7fa;
+        --card-bg: #ffffff;
+        --text: #333333;
+        --border: #e0e0e0;
+        --radius: 12px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 15px;
+        max-width: 640px;
+        margin: 0 auto;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* === Header === */
+    header { text-align: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--primary); }
+    header h1 { font-size: 22px; color: var(--primary); margin-bottom: 4px; }
+    header p { font-size: 13px; color: #777; }
+
+    /* === Buttons (min 44px tap target) === */
+    .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 44px; padding: 10px 16px; border: none; border-radius: var(--radius);
+        font-size: 15px; font-weight: 500; cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+        width: 100%; gap: 4px;
+    }
+    .btn:active { opacity: 0.75; transform: scale(0.98); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger  { background: var(--danger); color: #fff; }
+    .btn-outline { background: #fff; border: 1.5px solid var(--border); color: #555; }
+    .btn-sm { min-height: 40px; padding: 8px 12px; font-size: 14px; width: auto; }
+
+    /* === Toolbar === */
+    .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+
+    /* === Cards === */
+    .card {
+        background: var(--card-bg); border-radius: var(--radius); padding: 14px 16px;
+        margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+        border: 1px solid #eee; transition: box-shadow 0.2s;
+    }
+    .card:active { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .card-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 8px; }
+    .card-title-group { flex: 1; min-width: 0; }
+    .card-title { font-size: 17px; font-weight: 700; overflow-wrap: break-word; }
+    .card-meta { font-size: 13px; color: #666; margin-top: 2px; }
+
+    /* === Tags === */
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .tag {
+        display: inline-block; padding: 2px 8px; border-radius: 6px;
+        font-size: 12px; font-weight: 500; white-space: nowrap;
+    }
+    .tag-blue   { background: #e3f2fd; color: #1565c0; }
+    .tag-green  { background: #e8f5e9; color: #2e7d32; }
+    .tag-gray   { background: #f5f5f5; color: #666; border: 1px solid #ddd; }
+    .tag-orange { background: #fff3e0; color: #e65100; }
+
+    /* === Score Badge === */
+    .score-badge {
+        width: 44px; height: 44px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 18px; color: #fff; flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .score-high { background: var(--success); }
+    .score-mid  { background: var(--warning); }
+    .score-low  { background: var(--danger); }
+
+    /* === Price === */
+    .price-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .price-main { font-size: 17px; font-weight: 700; color: var(--danger); }
+    .price-unit { font-size: 12px; color: #888; }
+    .price-na   { font-size: 15px; color: #aaa; }
+
+    /* === Scores Grid === */
+    .scores-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+        background: #fafbfc; border-radius: 8px; padding: 8px; margin: 6px 0;
+        font-size: 12px; border: 1px solid #f0f0f0;
+    }
+    .scores-grid div { text-align: center; color: #555; }
+    .scores-grid span { font-weight: 700; color: var(--primary); }
+
+    /* === Note Preview === */
+    .note-preview {
+        font-size: 13px; color: #555; background: #fffde7; padding: 6px 10px;
+        border-radius: 6px; margin: 6px 0; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; border-left: 3px solid #ffd600;
+    }
+
+    /* === Photo Grid (list view) === */
+    .photo-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+    .photo-strip img {
+        width: 64px; height: 64px; object-fit: cover; border-radius: 8px;
+        border: 1px solid #eee; display: block;
+    }
+    .photo-count-badge {
+        width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;
+        background: #f0f0f0; border-radius: 8px; font-size: 13px; color: #999;
+        border: 1px dashed #ccc;
+    }
+
+    /* === Card Actions === */
+    .card-actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+    .card-actions .btn { flex: 1; width: auto; }
+    .card-time { text-align: right; font-size: 11px; color: #bbb; margin-top: 6px; }
+
+    /* === Form === */
+    .form-panel { background: var(--card-bg); border-radius: var(--radius); padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border: 1px solid #eee; }
+    .form-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; }
+    .form-title-row h2 { font-size: 18px; margin: 0; }
+    .form-section { margin-bottom: 16px; }
+    .form-section-title { font-size: 14px; font-weight: 600; color: var(--primary); margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e8e8e8; }
+    .form-label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; font-weight: 500; }
+    .form-input, .form-select, .form-textarea {
+        width: 100%; min-height: 44px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+        font-size: 16px; background: #fff; transition: border-color 0.2s;
+        -webkit-appearance: none; appearance: none;
+    }
+    .form-select {
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3e%3cpath fill='%23666' d='M6 8L0 0h12z'/%3e%3c/svg%3e");
+        background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(25,118,210,0.1); }
+    .form-textarea { height: 90px; min-height: 90px; resize: vertical; }
+    .form-row { display: flex; gap: 10px; }
+    .form-col { flex: 1; min-width: 0; }
+    .required { color: var(--danger); }
+
+    /* === Star Score === */
+    .star-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    .star-btn {
+        width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border);
+        background: #fff; display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 16px; cursor: pointer; color: #888; transition: all 0.15s;
+    }
+    .star-btn.active {
+        background: #e3f2fd; border-color: var(--primary); color: var(--primary);
+        transform: scale(1.1); box-shadow: 0 2px 8px rgba(25,118,210,0.25);
+    }
+
+    /* === Detail Scores === */
+    .detail-scores { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .detail-score-item label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; font-weight: 500; }
+
+    /* === Photo Upload === */
+    .photo-add-btn {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 44px; padding: 10px; border: 2px dashed var(--border); border-radius: 8px;
+        background: #fafbfc; font-size: 14px; color: #888; cursor: pointer; text-align: center;
+        transition: border-color 0.2s;
+    }
+    .photo-add-btn:active { border-color: var(--primary); color: var(--primary); }
+    .photo-hint { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .photo-preview-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .photo-preview-item {
+        position: relative; width: 84px; height: 84px; border-radius: 8px; overflow: hidden;
+        border: 1px solid #eee;
+    }
+    .photo-preview-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo-del-btn {
+        position: absolute; top: 2px; right: 2px; width: 26px; height: 26px; border-radius: 50%;
+        background: rgba(0,0,0,0.6); color: #fff; border: none; font-size: 16px;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        line-height: 1; padding: 0;
+    }
+    .photo-empty { font-size: 13px; color: #bbb; padding: 8px 0; }
+
+    /* === Utility === */
+    .hidden { display: none !important; }
+    .empty-state { text-align: center; padding: 50px 20px; color: #bbb; font-size: 15px; line-height: 1.8; }
+    .footer-note { text-align: center; font-size: 11px; color: #ccc; margin-top: 20px; padding-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>🏠 中山三鄉睇樓評分表</h1>
+    <p>離線可用 · 自動儲存 · 圖片壓縮</p>
+</header>
+
+<!-- ===================== Toolbar ===================== -->
+<div class="toolbar" id="toolbarBtns">
+    <button class="btn btn-success" onclick="openForm()">＋ 新增單位</button>
+    <button class="btn btn-primary" onclick="exportData()">📥 匯出備份</button>
+    <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📤 匯入恢復</button>
+    <button class="btn btn-danger" onclick="clearAll()">🗑 清除全部</button>
+</div>
+<input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importData(this)">
+
+<!-- ===================== List View ===================== -->
+<div id="listView"></div>
+
+<!-- ===================== Form View ===================== -->
+<div id="formView" class="hidden">
+    <div class="form-panel">
+        <div class="form-title-row">
+            <h2 id="formTitle">新增單位</h2>
+            <button class="btn btn-sm btn-outline" onclick="closeForm()">✕ 關閉</button>
+        </div>
+
+        <!-- 基本資料 -->
+        <div class="form-section">
+            <div class="form-section-title">基本資料</div>
+
+            <div style="margin-bottom:12px">
+                <label class="form-label" for="f_estate">樓盤名稱 <span class="required">*</span></label>
+                <input class="form-input" id="f_estate" placeholder="例如：雅居樂悅景園">
+            </div>
+
+            <div class="form-row" style="margin-bottom:12px">
+                <div class="form-col">
+                    <label class="form-label" for="f_unit">座數／單位</label>
+                    <input class="form-input" id="f_unit" placeholder="例如：3座 1205室">
+                </div>
+                <div class="form-col">
+                    <label class="form-label" for="f_type">類型</label>
+                    <select class="form-select" id="f_type">
+                        <option value="二手">二手</option>
+                        <option value="一手">一手</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom:12px">
+                <div class="form-col">
+                    <label class="form-label" for="f_area">建築面積 (㎡)</label>
+                    <input class="form-input" id="f_area" type="number" step="0.01" inputmode="decimal" placeholder="0">
+                </div>
+                <div class="form-col">
+                    <label class="form-label" for="f_rooms">房間</label>
+                    <input class="form-input" id="f_rooms" placeholder="例如：2房2衛">
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-bottom:12px">
+                <div class="form-col">
+                    <label class="form-label" for="f_floor">樓層／總樓層</label>
+                    <input class="form-input" id="f_floor" placeholder="例如：12/26">
+                </div>
+                <div class="form-col">
+                    <label class="form-label" for="f_decor">裝修</label>
+                    <select class="form-select" id="f_decor">
+                        <option value="毛坯">毛坯</option>
+                        <option value="簡裝">簡裝</option>
+                        <option value="精裝">精裝</option>
+                        <option value="豪華裝修">豪華裝修</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="form-label" for="f_facing">朝向</label>
+                <input class="form-input" id="f_facing" placeholder="例如：南">
+            </div>
+        </div>
+
+        <!-- 報價 -->
+        <div class="form-section">
+            <div class="form-section-title">報價</div>
+            <label class="form-label" for="f_price">代理報價（人民幣）</label>
+            <input class="form-input" id="f_price" type="number" step="10000" inputmode="numeric" placeholder="例如：480000">
+        </div>
+
+        <!-- 總體評分 -->
+        <div class="form-section">
+            <div class="form-section-title">總體評分（1–10）</div>
+            <div class="star-group" id="scoreGroup"></div>
+        </div>
+
+        <!-- 細項評分 -->
+        <div class="form-section">
+            <div class="form-section-title">細項評分（1–10）</div>
+            <div class="detail-scores">
+                <div class="detail-score-item">
+                    <label for="sc_loc">位置交通</label>
+                    <select class="form-select" id="sc_loc"></select>
+                </div>
+                <div class="detail-score-item">
+                    <label for="sc_layout">戶型格局</label>
+                    <select class="form-select" id="sc_layout"></select>
+                </div>
+                <div class="detail-score-item">
+                    <label for="sc_decor">裝修狀況</label>
+                    <select class="form-select" id="sc_decor"></select>
+                </div>
+                <div class="detail-score-item">
+                    <label for="sc_env">小區環境</label>
+                    <select class="form-select" id="sc_env"></select>
+                </div>
+                <div class="detail-score-item">
+                    <label for="sc_value">性價比</label>
+                    <select class="form-select" id="sc_value"></select>
+                </div>
+                <div class="detail-score-item">
+                    <label for="sc_agent">代理可信度</label>
+                    <select class="form-select" id="sc_agent"></select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 備註 -->
+        <div class="form-section">
+            <div class="form-section-title">備註</div>
+            <label class="form-label" for="f_note">睇樓時留意嘅嘢</label>
+            <textarea class="form-textarea" id="f_note" placeholder="滲水、潮濕、噪音、採光、議價空間、代理說法…"></textarea>
+        </div>
+
+        <!-- 照片 -->
+        <div class="form-section">
+            <div class="form-section-title">現場照片（最多 <span id="photoLimitLabel">12</span> 張）</div>
+            <label class="photo-add-btn" for="f_photos_input">📷 選擇照片／即場影相</label>
+            <input type="file" id="f_photos_input" accept="image/*" multiple capture="environment" style="display:none">
+            <div class="photo-hint">照片會自動壓縮至長邊 800px、JPEG 品質 0.6，慳儲存空間。</div>
+            <div class="photo-preview-grid" id="photoPreview"></div>
+        </div>
+
+        <!-- 底部按鈕 -->
+        <div style="display:flex; gap:10px; margin-top:16px">
+            <button class="btn btn-primary" style="flex:1" onclick="saveUnit()">💾 儲存記錄</button>
+            <button class="btn btn-outline" style="flex:1" onclick="closeForm()">取消</button>
+        </div>
+    </div>
+</div>
+
+<div class="footer-note">中山三鄉睇樓評分表 · 純離線單檔案版</div>
+
+<!-- ===================== JavaScript ===================== -->
+<script>
+(function () {
+    'use strict';
+
+    // --- Constants ---
+    const STORAGE_KEY = 'sz_sq_units';
+    const MAX_PHOTOS = 12;
+    const MAX_IMG_SIDE = 800;
+    const IMG_QUALITY = 0.6;
+
+    const SCORE_FIELDS = [
+        { key: 'loc',    label: '位置交通'   },
+        { key: 'layout', label: '戶型格局'   },
+        { key: 'decor',  label: '裝修狀況'   },
+        { key: 'env',    label: '小區環境'   },
+        { key: 'value',  label: '性價比'     },
+        { key: 'agent',  label: '代理可信度' }
+    ];
+
+    // --- State ---
+    let units = [];
+    let editingIndex = -1;
+    let tempPhotos = [];
+
+    // --- Cached DOM refs ---
+    const listView      = document.getElementById('listView');
+    const formView      = document.getElementById('formView');
+    const toolbarBtns   = document.getElementById('toolbarBtns');
+    const formTitle     = document.getElementById('formTitle');
+    const scoreGroup    = document.getElementById('scoreGroup');
+    const photoPreview  = document.getElementById('photoPreview');
+    const photosInput   = document.getElementById('f_photos_input');
+    const importInput   = document.getElementById('importFile');
+
+    // --- Init ---
+    function init() {
+        document.getElementById('photoLimitLabel').textContent = String(MAX_PHOTOS);
+        loadData();
+        initScoreButtons();
+        initDetailSelects();
+        renderList();
+        photosInput.addEventListener('change', handlePhotoSelect);
+    }
+
+    // ===================== Data =====================
+    function loadData() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) units = parsed;
+            }
+        } catch (e) {
+            console.error('讀取本地數據失敗:', e);
+            units = [];
+        }
+    }
+
+    function persistData() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
+        } catch (e) {
+            console.error('儲存失敗:', e);
+            alert('儲存失敗！照片可能太多導致空間不足。\n\n建議立即按「📥 匯出備份」保存 JSON，然後刪除部分舊照片或記錄。');
+        }
+    }
+
+    // ===================== Score controls =====================
+    function initScoreButtons() {
+        let html = '';
+        for (let i = 1; i <= 10; i++) {
+            html += '<div class="star-btn" data-val="' + i + '">' + i + '</div>';
+        }
+        scoreGroup.innerHTML = html;
+        // Event delegation — bind once, never re-bind on re-render
+        scoreGroup.addEventListener('click', function (e) {
+            const btn = e.target.closest('.star-btn');
+            if (btn) selectScore(parseInt(btn.dataset.val, 10));
+        });
+        selectScore(7);
+    }
+
+    function selectScore(val) {
+        const btns = scoreGroup.querySelectorAll('.star-btn');
+        for (let i = 0; i < btns.length; i++) {
+            btns[i].classList.toggle('active', parseInt(btns[i].dataset.val, 10) === val);
+        }
+        scoreGroup.dataset.score = String(val);
+    }
+
+    function initDetailSelects() {
+        SCORE_FIELDS.forEach(function (f) {
+            const sel = document.getElementById('sc_' + f.key);
+            if (!sel) return;
+            let opts = '<option value="">—</option>';
+            for (let n = 1; n <= 10; n++) opts += '<option value="' + n + '">' + n + '</option>';
+            sel.innerHTML = opts;
+        });
+    }
+
+    // ===================== List rendering =====================
+    function renderList() {
+        if (units.length === 0) {
+            listView.innerHTML = '<div class="empty-state">🏡<br>暫無記錄<br>點擊「＋ 新增單位」開始睇樓</div>';
+            return;
+        }
+
+        // Keep original indices so edit/delete target the right record after sorting
+        const indexed = units.map(function (item, idx) { return { item: item, idx: idx }; });
+        indexed.sort(function (a, b) { return toMs(b.item) - toMs(a.item); });
+
+        listView.innerHTML = indexed.map(function (o) { return buildCard(o.item, o.idx); }).join('');
+    }
+
+    function toMs(u) {
+        const v = u.time || u.timestamp;
+        if (!v) return 0;
+        const t = (typeof v === 'number') ? v : Date.parse(v);
+        return isNaN(t) ? 0 : t;
+    }
+
+    function buildCard(u, idx) {
+        const estate = escapeHtml(u.estate || '—');
+        const unitTxt = u.unit ? '<span style="font-weight:400;font-size:14px;color:#777"> · ' + escapeHtml(u.unit) + '</span>' : '';
+
+        // Tags
+        let tags = '';
+        if (u.type)   tags += '<span class="tag tag-blue">'   + escapeHtml(u.type)   + '</span>';
+        if (u.decor)  tags += '<span class="tag tag-green">'  + escapeHtml(u.decor)  + '</span>';
+        if (u.area)   tags += '<span class="tag tag-gray">'   + escapeHtml(String(u.area)) + '㎡</span>';
+        if (u.rooms)  tags += '<span class="tag tag-gray">'   + escapeHtml(u.rooms)  + '</span>';
+        if (u.floor)  tags += '<span class="tag tag-gray">'   + escapeHtml(u.floor)  + '樓</span>';
+        if (u.facing) tags += '<span class="tag tag-orange">朝' + escapeHtml(u.facing) + '</span>';
+
+        // Price + unit price
+        let priceHtml;
+        if (u.price && u.price > 0) {
+            const main = '¥' + Number(u.price).toLocaleString('en-US');
+            const up = (u.area && u.area > 0)
+                ? '<span class="price-unit">@ ¥' + Math.round(u.price / u.area).toLocaleString('en-US') + '/㎡</span>'
+                : '';
+            priceHtml = '<span class="price-main">' + main + '</span>' + up;
+        } else {
+            priceHtml = '<span class="price-na">報價 —</span>';
+        }
+
+        // Overall badge
+        const ov = parseInt(u.overall, 10) || 0;
+        const cls = ov >= 7 ? 'score-high' : (ov >= 5 ? 'score-mid' : 'score-low');
+
+        // Detail scores
+        const sc = u.scores || {};
+        const scoresHtml = SCORE_FIELDS.map(function (f) {
+            const v = sc[f.key];
+            return '<div>' + f.label + '<br><span>' + (v ? v : '—') + '</span></div>';
+        }).join('');
+
+        // Note
+        const noteHtml = u.note
+            ? '<div class="note-preview">📝 ' + escapeHtml(u.note) + '</div>'
+            : '';
+
+        // Photos (max 6 thumbnails)
+        let photosHtml = '';
+        if (u.photos && u.photos.length > 0) {
+            const thumbs = u.photos.slice(0, 6).map(function (src) {
+                return '<img src="' + src + '" alt="現場照片" loading="lazy">';
+            }).join('');
+            const extra = u.photos.length > 6
+                ? '<div class="photo-count-badge">+' + (u.photos.length - 6) + '</div>'
+                : '';
+            photosHtml = '<div class="photo-strip">' + thumbs + extra + '</div>';
+        }
+
+        const timeStr = u.time || u.timestamp ? formatDateTime(toMs(u)) : '—';
+
+        return '<div class="card">' +
+            '<div class="card-header-row">' +
+                '<div class="card-title-group">' +
+                    '<div class="card-title">' + estate + unitTxt + '</div>' +
+                    '<div class="tags">' + (tags || '<span class="tag tag-gray">未填詳細</span>') + '</div>' +
+                '</div>' +
+                '<div class="score-badge ' + cls + '">' + ov + '</div>' +
+            '</div>' +
+            '<div class="price-row">' + priceHtml + '</div>' +
+            '<div class="scores-grid">' + scoresHtml + '</div>' +
+            noteHtml +
+            photosHtml +
+            '<div class="card-actions">' +
+                '<button class="btn btn-sm btn-outline" data-act="edit" data-idx="' + idx + '">✏️ 編輯</button>' +
+                '<button class="btn btn-sm btn-danger" data-act="del" data-idx="' + idx + '">🗑 刪除</button>' +
+            '</div>' +
+            '<div class="card-time">記錄時間：' + timeStr + '</div>' +
+        '</div>';
+    }
+
+    // Event delegation for card buttons — bound once at init
+    listView.addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.idx, 10);
+        if (btn.dataset.act === 'edit') editUnit(idx);
+        else if (btn.dataset.act === 'del') deleteUnit(idx);
+    });
+
+    // ===================== Form open / close =====================
+    function showForm() {
+        formView.classList.remove('hidden');
+        listView.classList.add('hidden');
+        toolbarBtns.classList.add('hidden');
+        window.scrollTo(0, 0);
+    }
+
+    window.openForm = function () {
+        editingIndex = -1;
+        resetForm();
+        showForm();
+    };
+
+    window.closeForm = function () {
+        formView.classList.add('hidden');
+        listView.classList.remove('hidden');
+        toolbarBtns.classList.remove('hidden');
+        editingIndex = -1;
+        tempPhotos = [];
+        photosInput.value = '';
+    };
+
+    function resetForm() {
+        formTitle.textContent = '新增單位';
+        ['f_estate','f_unit','f_area','f_rooms','f_floor','f_facing','f_price','f_note']
+            .forEach(function (id) { document.getElementById(id).value = ''; });
+        document.getElementById('f_type').value  = '二手';
+        document.getElementById('f_decor').value = '毛坯';
+        SCORE_FIELDS.forEach(function (f) {
+            const el = document.getElementById('sc_' + f.key);
+            if (el) el.value = '';
+        });
+        selectScore(7);
+        tempPhotos = [];
+        renderPhotoPreview();
+        photosInput.value = '';
+    }
+
+    function editUnit(idx) {
+        const u = units[idx];
+        if (!u) return;
+        editingIndex = idx;
+        resetForm();
+
+        formTitle.textContent = '編輯單位';
+        document.getElementById('f_estate').value = u.estate || '';
+        document.getElementById('f_unit').value   = u.unit   || '';
+        document.getElementById('f_type').value   = u.type   || '二手';
+        document.getElementById('f_area').value   = (u.area != null && u.area !== 0) ? String(u.area) : '';
+        document.getElementById('f_rooms').value  = u.rooms  || '';
+        document.getElementById('f_floor').value  = u.floor  || '';
+        document.getElementById('f_decor').value  = u.decor  || '毛坯';
+        document.getElementById('f_facing').value = u.facing || '';
+        document.getElementById('f_price').value  = (u.price != null && u.price !== 0) ? String(u.price) : '';
+        document.getElementById('f_note').value   = u.note   || '';
+
+        selectScore(parseInt(u.overall, 10) || 7);
+
+        const sc = u.scores || {};
+        SCORE_FIELDS.forEach(function (f) {
+            const el = document.getElementById('sc_' + f.key);
+            if (el) el.value = sc[f.key] ? String(sc[f.key]) : '';
+        });
+
+        tempPhotos = Array.isArray(u.photos) ? u.photos.slice() : [];
+        renderPhotoPreview();
+        showForm();
+    }
+
+    // ===================== Save / Delete =====================
+    window.saveUnit = function () {
+        const estate = document.getElementById('f_estate').value.trim();
+        if (!estate) {
+            alert('請填寫樓盤名稱（必填）。');
+            document.getElementById('f_estate').focus();
+            return;
+        }
+
+        const scores = {};
+        SCORE_FIELDS.forEach(function (f) {
+            const el = document.getElementById('sc_' + f.key);
+            scores[f.key] = el && el.value ? parseInt(el.value, 10) : 0;
+        });
+
+        const entry = {
+            estate:  estate,
+            unit:    document.getElementById('f_unit').value.trim(),
+            type:    document.getElementById('f_type').value,
+            area:    parseFloat(document.getElementById('f_area').value) || 0,
+            rooms:   document.getElementById('f_rooms').value.trim(),
+            floor:   document.getElementById('f_floor').value.trim(),
+            decor:   document.getElementById('f_decor').value,
+            facing:  document.getElementById('f_facing').value.trim(),
+            price:   parseFloat(document.getElementById('f_price').value) || 0,
+            overall: parseInt(scoreGroup.dataset.score, 10) || 7,
+            scores:  scores,
+            note:    document.getElementById('f_note').value.trim(),
+            photos:  tempPhotos.slice(),
+            time:    new Date().toISOString()
+        };
+
+        if (editingIndex >= 0 && editingIndex < units.length) {
+            entry.time = units[editingIndex].time || entry.time; // keep original creation time
+            units[editingIndex] = entry;
+        } else {
+            units.unshift(entry);
+        }
+
+        persistData();
+        renderList();
+        closeForm();
+    };
+
+    function deleteUnit(idx) {
+        if (idx < 0 || idx >= units.length) return;
+        const u = units[idx];
+        if (confirm('確定要刪除「' + (u.estate || '此記錄') + (u.unit ? ' ' + u.unit : '') + '」嗎？\n\n此操作無法復原。')) {
+            units.splice(idx, 1);
+            persistData();
+            renderList();
+        }
+    }
+
+    window.clearAll = function () {
+        if (units.length === 0) {
+            alert('目前沒有任何記錄可清除。');
+            return;
+        }
+        if (!confirm('確定要清除全部 ' + units.length + ' 筆記錄嗎？')) return;
+        if (!confirm('最後確認：所有資料（包括照片）將會永久刪除，無法復原。\n\n建議先按「📥 匯出備份」。\n\n真的要清除嗎？')) return;
+        units = [];
+        persistData();
+        renderList();
+    };
+
+    // ===================== Photo handling =====================
+    function handlePhotoSelect(e) {
+        let files = Array.from(e.target.files || []);
+        // Always clear the input first so re-selecting the same file still fires change
+        e.target.value = '';
+        if (files.length === 0) return;
+
+        const remaining = MAX_PHOTOS - tempPhotos.length;
+        if (remaining <= 0) {
+            alert('已達上限 ' + MAX_PHOTOS + ' 張照片，請先刪除現有照片。');
+            return;
+        }
+        if (files.length > remaining) {
+            alert('最多只能再加 ' + remaining + ' 張（上限 ' + MAX_PHOTOS + ' 張）。\n已自動只處理前 ' + remaining + ' 張。');
+            files = files.slice(0, remaining);
+        }
+
+        // Wait for ALL compressions before rendering — never render mid-flight
+        const results = new Array(files.length);
+        let done = 0;
+        files.forEach(function (file, i) {
+            compressImage(file, function (dataUrl) {
+                results[i] = dataUrl;
+                done++;
+                if (done === files.length) {
+                    results.forEach(function (d) { if (d) tempPhotos.push(d); });
+                    renderPhotoPreview();
+                }
+            });
+        });
+    }
+
+    function compressImage(file, callback) {
+        const reader = new FileReader();
+        reader.onerror = function () { callback(null); };
+        reader.onload = function (ev) {
+            const img = new Image();
+            img.onerror = function () { callback(null); };
+            img.onload = function () {
+                let w = img.naturalWidth || img.width;
+                let h = img.naturalHeight || img.height;
+                if (!w || !h) { callback(null); return; }
+
+                const longSide = Math.max(w, h);
+                if (longSide > MAX_IMG_SIDE) {
+                    const ratio = MAX_IMG_SIDE / longSide;
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+
+                try {
+                    callback(canvas.toDataURL('image/jpeg', IMG_QUALITY));
+                } catch (err) {
+                    console.error('圖片壓縮失敗:', err);
+                    callback(null);
+                }
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function renderPhotoPreview() {
+        if (tempPhotos.length === 0) {
+            photoPreview.innerHTML = '<div class="photo-empty">尚未選擇照片</div>';
+            return;
+        }
+        photoPreview.innerHTML = tempPhotos.map(function (src, i) {
+            return '<div class="photo-preview-item">' +
+                '<img src="' + src + '" alt="照片 ' + (i + 1) + '">' +
+                '<button type="button" class="photo-del-btn" data-photo-idx="' + i + '" aria-label="刪除照片">×</button>' +
+            '</div>';
+        }).join('');
+    }
+
+    // Event delegation — indices always read from live DOM, never stale closures
+    photoPreview.addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-photo-idx]');
+        if (!btn) return;
+        const i = parseInt(btn.dataset.photoIdx, 10);
+        if (i >= 0 && i < tempPhotos.length) {
+            tempPhotos.splice(i, 1);
+            renderPhotoPreview();
+        }
+    });
+
+    // ===================== Export / Import =====================
+    window.exportData = function () {
+        if (units.length === 0) {
+            alert('沒有數據可匯出。');
+            return;
+        }
+        try {
+            const blob = new Blob([JSON.stringify(units, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sanchong_' + todayStr() + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        } catch (e) {
+            console.error('匯出失敗:', e);
+            alert('匯出失敗：' + e.message);
+        }
+    };
+
+    window.importData = function (input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onerror = function () {
+            alert('無法讀取文件。');
+            input.value = '';
+        };
+        reader.onload = function (ev) {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (!Array.isArray(data)) throw new Error('頂層不是陣列（Array）');
+
+                const cleaned = data.filter(function (d) { return d && typeof d === 'object'; });
+                if (cleaned.length === 0) throw new Error('檔案內沒有有效記錄');
+
+                const overwrite = confirm(
+                    '檔案包含 ' + cleaned.length + ' 筆記錄，現有 ' + units.length + ' 筆。\n\n' +
+                    '「確定」＝覆蓋現有資料\n「取消」＝合併追加到現有資料'
+                );
+                units = overwrite ? cleaned : units.concat(cleaned);
+                persistData();
+                renderList();
+                alert('匯入成功！現共有 ' + units.length + ' 筆記錄。');
+            } catch (err) {
+                console.error('匯入失敗:', err);
+                alert('無法解析文件：' + err.message + '\n\n請確認這是本工具匯出的備份 JSON。');
+            }
+            input.value = ''; // allow re-selecting the same file
+        };
+        reader.readAsText(file, 'UTF-8');
+    };
+
+    // Suppress the unused-var lint for importInput (kept for clarity)
+    void importInput;
+
+    // ===================== Helpers =====================
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function todayStr() {
+        const d = new Date();
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    function formatDateTime(ms) {
+        if (!ms) return '—';
+        const d = new Date(ms);
+        if (isNaN(d.getTime())) return '—';
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+               ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    // --- Boot ---
+    init();
+})();
+</script>
+
+<!--
+════════════════════════════════════════════════════════════════
+  使用方法 / How to use
+════════════════════════════════════════════════════════════════
+
+【第一步：儲存檔案】
+  1. 將本檔案（index.html）下載或複製到你的裝置。
+  2. 不需要安裝任何軟件、不需要 npm、不需要網絡。
+
+【第二步：用手機瀏覽器打開】
+  方法 A（最簡單）— 直接打開
+    · Android：用檔案管理員點 index.html → 選 Chrome 打開
+    · iPhone：把 index.html 傳到「檔案」App → 點一下 → 右上角分享
+             → 「在 Safari 中開啟」
+
+  方法 B — 電腦傳到手機
+    · 用 WhatsApp / Telegram / WeChat「檔案傳輸助手」把 index.html
+      發送到手機，然後按上述方法打開
+    · iPhone 可用 AirDrop
+
+  方法 C — 區域網絡（適合多次使用）
+    · 在電腦 index.html 所在資料夾開啟終端機，執行：
+          python -m http.server 8000
+    · 手機連同一 Wi-Fi，瀏覽器打開：
+          http://<電腦IP>:8000/index.html
+    · 可「加到主畫面」當作 App 使用
+
+【第三步：日常使用】
+  · ＋新增單位：睇樓時即場填寫，可用手機相機即場影相
+  · 資料自動儲存在瀏覽器 localStorage，無需登入、無需網絡
+  · 📥 匯出備份：定期下載 JSON 備份（檔名含日期）
+  · 📤 匯入恢復：換手機或清瀏覽器資料後，用備份 JSON 還原
+  · 🗑 清除全部：需要兩次確認，防誤刪
+
+【重要提示】
+  · localStorage 以「瀏覽器 + 網域」為單位。用唔同瀏覽器
+    （Chrome vs Safari）或 file:// vs http:// 打開，資料係分開嘅，
+    唔會互通。請固定用同一個方式打開。
+  · 清除瀏覽器資料 / 用無痕模式會令記錄消失 — 記得定期匯出備份。
+  · 照片已自動壓縮（長邊 800px、JPEG 0.6），但每張仍佔約
+    30–80KB；localStorage 一般上限約 5MB，即大約 60–150 張相。
+    若出現「儲存失敗」提示，請先匯出備份再刪相。
+  · 本工具純前端，不會上傳任何資料到網絡。
+
+════════════════════════════════════════════════════════════════
+-->
+</body>
+</html>
